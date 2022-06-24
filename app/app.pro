@@ -3,12 +3,9 @@
 ###################################################
 
 TEMPLATE = app
-TARGET   = NewAwesomeApplication
+TARGET   = EnumReflectionGenerator
 
-#QT = core gui widgets network
-#win*:QT += winextras
-CONFIG -= qt
-CONFIG += console
+QT = core gui widgets
 
 CONFIG += strict_c++ c++2a
 
@@ -54,7 +51,8 @@ INCLUDEPATH += \
 ###################################################
 
 SOURCES += \
-	src/main.cpp
+	src/main.cpp \
+	src/mainwindow.cpp
 
 ###################################################
 #                 LIBS
@@ -78,10 +76,10 @@ win*{
 	QMAKE_CXXFLAGS_WARN_ON = /W4
 	DEFINES += WIN32_LEAN_AND_MEAN NOMINMAX _SCL_SECURE_NO_WARNINGS
 
-	Debug:QMAKE_CXXFLAGS   += /ZI
-	Release:QMAKE_CXXFLAGS += /Zi
-
 	QMAKE_LFLAGS += /DEBUG:FASTLINK /TIME
+
+	QMAKE_CXXFLAGS_DEBUG -= -Zi
+	QMAKE_CXXFLAGS_DEBUG *= /ZI
 
 	Debug:QMAKE_LFLAGS += /INCREMENTAL
 	Release:QMAKE_LFLAGS += /OPT:REF /OPT:ICF
@@ -107,3 +105,12 @@ linux*|mac*|freebsd {
 win32*:!*msvc2012:*msvc* {
 	QMAKE_CXXFLAGS += /FS
 }
+
+FORMS += \
+	src/mainwindow.ui
+
+HEADERS += \
+	src/mainwindow.h
+
+RESOURCES += \
+	src/resources.qrc
