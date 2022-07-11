@@ -4,6 +4,7 @@ DISABLE_COMPILER_WARNINGS
 #include "ui_mainwindow.h"
 
 #include <QFile>
+#include <QStringBuilder>
 RESTORE_COMPILER_WARNINGS
 
 #include <assert.h>
@@ -120,9 +121,9 @@ void MainWindow::generate()
 	for (auto&& item : parsedItems)
 	{
 		if (!arrayItems.isEmpty())
-			arrayItems += ",\n";
+			arrayItems += ",\n\t\t\t";
 
-		arrayItems += ("{ \"" + item.first + "\", " + QString::number(item.second) + " }");
+		arrayItems = arrayItems % "{ \"" % item.first % "\", " % QString::number(item.second) % " }";
 	}
 
 	templ = templ.arg(enumName).arg(parsedItems.size()).arg(arrayItems);
