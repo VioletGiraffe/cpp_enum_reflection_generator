@@ -3,8 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <utility>
-#include <stdint.h>
 #include <string_view>
+#include <type_traits>
 
 // % 1 - enum type
 // % 2 - number of items
@@ -19,7 +19,7 @@ namespace detail {
 	class EnumReflection<%1>
 	{
 		using EnumType = %1;
-		using ValueType = int64_t;
+		using ValueType = std::underlying_type_t<%1>;
 	public:
 		static constexpr std::string_view enum_name(EnumType v) noexcept {
 			const auto it = std::find_if(_items.begin(), _items.end(), [&v](auto&& item) {

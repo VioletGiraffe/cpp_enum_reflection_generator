@@ -41,27 +41,14 @@ static QStringList preprocess(QString input) noexcept
 	return lines.join(QString{}).split(',');
 }
 
-static auto parseNumber(const QString& s) noexcept
-{
-	int base = 10;
-	if (s.startsWith(QLatin1String("0x"), Qt::CaseInsensitive))
-		base = 16;
-	else if (s.startsWith(QLatin1String("0b"), Qt::CaseInsensitive))
-		base = 2;
-	else if (s.startsWith(QLatin1String("0"), Qt::CaseInsensitive))
-		base = 8;
+struct EnumNameAndType {
+	QString name, type;
+};
 
-	[[maybe_unused]] bool ok = false;
-	const auto n = s.toLongLong(&ok, base);
-	assert(ok);
-	return n;
-}
-
-static QString parseEnumName(const QString& s) noexcept
+static EnumNameAndType parseEnumNameAndType(const QString& s) noexcept
 {
-	const auto openingBrace = s.indexOf('{');
 	static constexpr const char enumClassString[]{ "enum class" };
-	auto enumPos = s.indexOf(enumClassString);
+	int enumPos = s.indexOf(enumClassString);
 	int matchLength = (int)std::size(enumClassString);
 	if (enumPos == -1)
 	{
@@ -70,16 +57,27 @@ static QString parseEnumName(const QString& s) noexcept
 		matchLength = (int)std::size(enumString);
 	}
 
-	QString enumName = s.mid(enumPos + matchLength, openingBrace - enumPos - matchLength);
-	return enumName.trimmed();
+	const int openingBrace = s.indexOf('{', enumPos);
+
+	EnumNameAndType result;
+	const int colonPos = s.indexOf(':', enumPos);
+	if (colonPos > 0 && colonPos < openingBrace)
+	{
+		result.name = s.mid(enumPos + matchLength, colonPos - enumPos - matchLength).trimmed();
+		result.type = s.mid(colonPos + 1, openingBrace - colonPos).trimmed();
+	}
+	else
+		result.name = s.mid(enumPos + matchLength, openingBrace - enumPos - matchLength).trimmed();
+
+	return result;
 }
 
 void MainWindow::generate()
 {
 	QString enumText = ui->_sourceText->toPlainText();
 
-	const auto enumName = parseEnumName(enumText);
-	if (enumName.isEmpty())
+	const auto enumNameAndType = parseEnumNameAndType(enumText);
+	if (enumNameAndType.name.isEmpty())
 	{
 		ui->_generatedText->setPlainText("Invalid input!");
 		return;
@@ -97,20 +95,35 @@ void MainWindow::generate()
 		enumText = enumText.mid(openingBrace + 1, closingBrace - openingBrace - 1);
 
 	const auto items = preprocess(std::move(enumText));
-	using EnumType = int64_t;
-	std::vector<std::pair<QString, EnumType>> parsedItems;
+	std::vector<std::pair<QString, QString>> parsedItems;
 	for (auto&& item : items)
 	{
 		auto declaration = item.split('=');
-		assert(declaration.size() == 1 || declaration.size() == 2);
+		assert(declaration.size() == 0 || declaration.size() == 2);
 
-		EnumType value;
+		QString valueText;
 		if (declaration.size() == 2)
-			value = parseNumber(declaration[1]);
-		else
-			value = parsedItems.empty() ? 0 : parsedItems.back().second + 1;
+			valueText = declaration[1];
+		else if (!parsedItems.empty())
+		{
+			bool ok = false;
+			const auto intValue = parsedItems.back().second.toLongLong(&ok);
+			if (ok)
+				valueText = QString::number(intValue + 1);
 
-		parsedItems.emplace_back(declaration[0], value);
+			const auto uintValue = parsedItems.back().second.toULongLong(&ok);
+			if (ok)
+				valueText = QString::number(uintValue + 1);
+			else
+			{
+				ui->_generatedText->setPlainText("Invalid input!");
+				return;
+			}
+		}
+		else
+			valueText = "0";
+
+		parsedItems.emplace_back(declaration[0], std::move(valueText));
 	}
 
 	QFile templFile(":/EnumReflection_template.hpp");
@@ -123,9 +136,9 @@ void MainWindow::generate()
 		if (!arrayItems.isEmpty())
 			arrayItems += ",\n\t\t\t";
 
-		arrayItems = arrayItems % "{ \"" % item.first % "\", " % QString::number(item.second) % " }";
+		arrayItems = arrayItems % "{ \"" % item.first % "\", " % item.second % " }";
 	}
 
-	templ = templ.arg(enumName).arg(parsedItems.size()).arg(arrayItems);
+	templ = templ.arg(enumNameAndType.name).arg(parsedItems.size()).arg(arrayItems);
 	ui->_generatedText->setPlainText(templ);
 }
